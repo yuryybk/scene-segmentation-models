@@ -1,0 +1,5 @@
+saved_models/*
+tensorboard/*
+*.png
+.idea
+__pycache__
