@@ -4,48 +4,62 @@ from data_descriptor import DataDescriptor
 import data_loader
 import math
 import os
+import numpy as np
+import tensorflow as tf
 
 
 class BaseNet:
 
     _tensorboard_dir_base_path = "./tensorboard/fit/"
     _saved_model_base_path = "./saved_models/"
-    _name = ""
     _params_file_name = "params.txt"
-    _unique_file_id = None
 
-    def __init__(self, name, data_descriptor: DataDescriptor):
+    def __init__(self,
+                 name,
+                 data_descriptor: DataDescriptor,
+                 epochs=None,
+                 train_batch_size=None,
+                 test_batch_size=None,
+                 input_shape=None,
+                 optimizer=None,
+                 loss=None,
+                 steps_per_epoch=None,
+                 steps_validation=None,
+                 unique_file_id=None):
+
+        self._unique_file_id = unique_file_id
         self._name = name
-        self.data = data_descriptor
-        self.encoder_weights = 'imagenet'
-        self.input_shape = (224, 224, 3)
-        self.epochs = 20
-        self.train_batch_size = 8
-        self.test_batch_size = 1
-        self.optimizer = "Adam"
+        self._data = data_descriptor
+        self._epochs = epochs
+        self._train_batch_size = train_batch_size
+        self._test_batch_size = test_batch_size
+        self._input_shape = input_shape
+        self._optimizer = optimizer
+        self._model_callbacks = self.build_model_callbacks(unique_file_id)
+        self._loss = loss
 
-    def configure(self,
-                  epochs=20,
-                  train_batch_size=8,
-                  test_batch_size=1,
-                  input_shape=(224, 224, 3),
-                  encoder_weights="imagenet",
-                  optimizer="Adam"):
+        if steps_per_epoch is not None:
+            self._steps_per_epoch = steps_per_epoch
+        else:
+            self._steps_per_epoch = self.get_steps_per_epoch()
 
-        self.epochs = epochs
-        self.train_batch_size = train_batch_size
-        self.test_batch_size = test_batch_size
-        self.input_shape = input_shape
-        self.encoder_weights = encoder_weights
-        self.optimizer = optimizer
-        self.__save_model_params(self._unique_file_id)
+        if steps_validation is not None:
+            self._steps_validation = steps_validation
+        else:
+            self._steps_validation = self.get_validation_steps()
+
+        self.save_model_params(unique_file_id)
 
     def get_name(self):
         return self._name
 
-    def build_file_name(self, shape, epochs, backbone=None):
+    @staticmethod
+    def build_unique_file_id(model_name, shape, epochs, data: DataDescriptor, run_for_check=False, backbone=None):
         shape_str = str(shape[0]) + "_" + str(shape[1])
-        file_prefix = '{}_ep{}_sh{}'.format(self.get_name(), epochs, shape_str)
+        is_check = ""
+        if run_for_check:
+            is_check = "check_"
+        file_prefix = '{}{}_ep{}_sh{}_{}'.format(is_check, model_name, epochs, shape_str, data.get_name())
         if backbone is not None:
             file_prefix = file_prefix + "_" + backbone
         date_time_name = datetime.datetime.now().strftime("%Y%m%d-%H%M%S.%f")
@@ -83,37 +97,91 @@ class BaseNet:
         return [tensorboard_callback, saved_models_callback]
 
     def calculate_steps_per_epoch(self):
-        count_files = data_loader.get_count_files_dir(self.data.get_train_rgb_path())
-        return math.floor(count_files / self.train_batch_size)
+        count_files = data_loader.get_count_files_dir(self._data.get_train_rgb_path())
+        return math.floor(count_files / self._train_batch_size)
 
-    def print_train_params_summary(self, train_image_path, train_batch_size, steps_per_epoch_param):
+    def print_train_params_summary(self):
+        train_image_path = self._data.get_train_rgb_path()
         count_files = data_loader.get_count_files_dir(train_image_path)
-        info = 'Epochs = {}, batch_size = {}, count_files = {}, steps_per_epoch = {}, n_classes = {}'.format(self.epochs,
-                                                                                                             train_batch_size,
-                                                                                                             count_files,
-                                                                                                             steps_per_epoch_param,
-                                                                                                             self.data.get_n_classes())
+        info = 'Epochs = {}, batch_size = {}, count_files = {}, steps_per_epoch = {}, n_classes = {}, steps_validation = {}'.format(self._epochs,
+                                                                                                                                    self._train_batch_size,
+                                                                                                                                    count_files,
+                                                                                                                                    self._steps_per_epoch,
+                                                                                                                                    self._data.get_n_classes(),
+                                                                                                                                    self._steps_validation)
         print(info)
 
     def get_validation_steps(self):
-        return data_loader.get_count_files_dir(self.data.get_test_rgb_path())
+        return data_loader.get_count_files_dir(self._data.get_test_rgb_path())
 
     def get_steps_per_epoch(self):
         return self.calculate_steps_per_epoch()
 
     def train(self):
-        steps_per_epoch = self.get_steps_per_epoch()
-        self.print_train_params_summary(self.data.get_train_rgb_path(), self.train_batch_size, steps_per_epoch)
+        self.print_train_params_summary()
 
-    def __save_model_params(self, unique_file_id):
+    def load_saved_model(self):
+        saved_model_file_path = self.build_saved_model_file_path(self._unique_file_id)
+        return tf.keras.models.load_model(saved_model_file_path, compile=False)
+
+    def save_tf_lite(self):
+
+        # Load model with best saved params
+        model = self.load_saved_model()
+
+        # Convert the model.
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        converter.dump_graphviz_dir = self.build_saved_model_folder(self._unique_file_id)
+        converter.debug_info = True
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS,
+                                               tf.lite.OpsSet.SELECT_TF_OPS]
+        tf_lite_model = converter.convert()
+        tf_lite_model_path = self.build_tf_lite_file_path(self._unique_file_id)
+        with open(tf_lite_model_path, "wb") as f:
+            f.write(tf_lite_model)
+
+    def validate_tf_lite_model(self):
+
+        # Load TFLite model and allocate tensors.
+        tf_lite_model_path = self.build_tf_lite_file_path(self._unique_file_id)
+        interpreter = tf.lite.Interpreter(model_path=tf_lite_model_path)
+        interpreter.allocate_tensors()
+
+        # Get input and output tensors.
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+
+        # Test the TensorFlow Lite model on random input data.
+        input_shape = input_details[0]['shape']
+        input_data = np.array(np.random.random_sample(input_shape), dtype=np.float32)
+        interpreter.set_tensor(input_details[0]['index'], input_data)
+        interpreter.invoke()
+
+        # The function `get_tensor()` returns a copy of the tensor data.
+        # Use `tensor()` in order to get a pointer to the tensor.
+        tflite_results = interpreter.get_tensor(output_details[0]['index'])
+
+        # Test the TensorFlow model on random input data.
+        model = self.load_saved_model()
+        self.compile_model(model)
+        tf_results = model(tf.constant(input_data))
+
+        # Compare the result.
+        for tf_result, tflite_result in zip(tf_results, tflite_results):
+            np.testing.assert_almost_equal(tf_result, tflite_result, decimal=5)
+
+    def compile_model(self, model):
+        pass
+
+    def save_model_params(self, unique_file_id):
         params_file_path = self.build_params_file_path(unique_file_id)
         with open(params_file_path, "w") as f:
             f.write("NAME = " + self._name + "\n")
-            f.write("DATASET = " + self.data.get_name() + "\n")
-            f.write("PRETRAIN_ENCODER_WEIGHTS = " + self.encoder_weights + "\n")
-            f.write("INPUT SHAPE = " + str(self.input_shape) + "\n")
-            f.write("EPOCHS = " + str(self.epochs) + "\n")
-            f.write("TRAIN BATCH SIZE = " + str(self.train_batch_size) + "\n")
-            f.write("TEST BATCH SIZE = " + str(self.test_batch_size) + "\n")
-            f.write("OPTIMIZER = " + self.optimizer + "\n")
-
+            f.write("DATASET = " + self._data.get_name() + "\n")
+            f.write("INPUT SHAPE = " + str(self._input_shape) + "\n")
+            f.write("EPOCHS = " + str(self._epochs) + "\n")
+            f.write("TRAIN BATCH SIZE = " + str(self._train_batch_size) + "\n")
+            f.write("TEST BATCH SIZE = " + str(self._test_batch_size) + "\n")
+            f.write("OPTIMIZER = " + self._optimizer + "\n")
+            f.write("STEPS_PER_EPOCH =" + str(self._steps_per_epoch) + "\n")
+            f.write("STEPS_PER_VALIDATION = " + str(self._steps_per_epoch) + "\n")

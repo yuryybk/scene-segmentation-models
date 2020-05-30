@@ -20,6 +20,36 @@ class DataLoaderError(Exception):
     pass
 
 
+def get_first_file_from_path(path):
+    dir_entries = os.listdir(path)
+    if len(dir_entries) != 0:
+        file_path = os.path.join(path, dir_entries[0])
+        if os.path.isfile(file_path):
+            return file_path
+    return None
+
+
+def get_first_image_pair_from_path(images_path, masks_path):
+    image_path = get_first_file_from_path(images_path)
+    mask_path = get_first_file_from_path(masks_path)
+
+    if images_path is None:
+        raise DataLoaderError("No files in image path {0}.".format(images_path))
+
+    if mask_path is None:
+        raise DataLoaderError("No files in mask path {0}.".format(mask_path))
+
+    image_base_name = os.path.basename(image_path)
+    image_file_name, image_file_ext = os.path.splitext(image_base_name)
+
+    mask_base_name = os.path.basename(mask_path)
+    mask_file_name, mask_file_ext = os.path.splitext(mask_base_name)
+    if mask_file_name != image_file_name:
+        raise DataLoaderError("No corresponding mask found for image {0}.".format(image_file_name))
+
+    return image_path, mask_path
+
+
 def get_pairs_from_paths(images_path, segs_path, ignore_non_matching=False):
     """ Find all the images from the images_path directory and
         the segmentation images from the segs_path directory
@@ -101,7 +131,7 @@ def get_segmentation_array(image_input, n_classes, width, height, no_reshape=Fal
     if type(image_input) is np.ndarray:
         # It is already an array, use it as it is
         img = image_input
-    elif isinstance(image_input, six.string_types) :
+    elif isinstance(image_input, six.string_types):
         if not os.path.isfile(image_input):
             raise DataLoaderError("get_segmentation_array: path {0} doesn't exist".format(image_input))
         img = cv2.imread(image_input, 1)
