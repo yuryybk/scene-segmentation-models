@@ -10,8 +10,9 @@ def calculate_flops(model_path, shape=None):
             session.graph.as_default()
 
             input_name = graph_def.node[0].name
+            input_shape = (1, ) + shape
             if shape is not None:
-                tf_input = tf.compat.v1.placeholder(shape=(1, 224, 224, 3), dtype='float32', name=input_name)
+                tf_input = tf.compat.v1.placeholder(shape=input_shape, dtype='float32', name=input_name)
                 tf.import_graph_def(graph_def, name="import", input_map={input_name: tf_input})
             else:
                 tf.import_graph_def(graph_def)

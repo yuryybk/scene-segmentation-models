@@ -19,9 +19,8 @@ def train_ny2_data_1():
                       loss=tf.keras.losses.BinaryCrossentropy(),
                       metrics=[tf.keras.metrics.MeanIoU(num_classes=13)])
     sm_u_net.train()
-    #sm_u_net.save_tf_lite()
+    sm_u_net.save_tf_lite()
     sm_u_net.save_frozen_graph_tf2()
-    #sm_u_net.save_frozen_graph()
     profiler.calculate_flops(sm_u_net.build_frozen_graph_file_path(), sm_u_net.get_input_shape())
 
 
