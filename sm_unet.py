@@ -18,6 +18,7 @@ class SMUNet(BaseNet):
                  backbone="mobilenetv2",
                  optimizer="Adam",
                  loss=sm.losses.dice_loss,
+                 metrics=[sm.metrics.iou_score],
                  steps_per_epoch=None,
                  steps_validation=None,
                  run_for_check=False):
@@ -31,6 +32,7 @@ class SMUNet(BaseNet):
                          input_shape,
                          optimizer,
                          loss,
+                         metrics,
                          steps_per_epoch,
                          steps_validation,
                          unique_file_id)
@@ -51,8 +53,8 @@ class SMUNet(BaseNet):
         super().train()
 
         # Train model
-        model = sm.Unet(self._backbone, classes=self._data.get_n_classes(), encoder_weights=self._encoder_weights, input_shape=self._input_shape)
-        self.compile_model(model)
+        self._model = sm.Unet(self._backbone, classes=self._data.get_n_classes(), encoder_weights=self._encoder_weights, input_shape=self._input_shape)
+        self.compile_model(self._model)
         train_gen = generator.segmentation_generator(images_path=self._data.get_train_rgb_path(),
                                                      mask_path=self._data.get_train_mask_path(),
                                                      batch_size=self._train_batch_size,
@@ -73,13 +75,12 @@ class SMUNet(BaseNet):
                                                    output_height=self._input_shape[1],
                                                    do_augment=False)
 
-        model.fit_generator(train_gen,
-                            steps_per_epoch=self._steps_per_epoch,
-                            epochs=self._epochs,
-                            validation_data=val_gen,
-                            validation_steps=self._steps_validation,
-                            callbacks=[self._model_callbacks])
+        self._model.fit_generator(train_gen,
+                                  steps_per_epoch=self._steps_per_epoch,
+                                  epochs=self._epochs,
+                                  validation_data=val_gen,
+                                  validation_steps=self._steps_validation,
+                                  callbacks=[self._model_callbacks])
 
     def compile_model(self, model):
-        model.compile(self._optimizer, loss=self._loss, metrics=[sm.metrics.iou_score])
-
+        model.compile(self._optimizer, loss=self._loss, metrics=self._metrics)
