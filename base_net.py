@@ -138,6 +138,9 @@ class BaseNet:
     def get_steps_per_epoch(self):
         return self.calculate_steps_per_epoch()
 
+    def get_model(self):
+        return self._model
+
     def train(self):
         self.print_train_params_summary()
 

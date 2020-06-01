@@ -1,7 +1,8 @@
 import tensorflow as tf
+import numpy as np
 
 
-def calculate_flops(model_path, shape=None):
+def calculate_flops_from_frozen_graph(model_path, shape=None):
     tf.compat.v1.reset_default_graph()
     with tf.compat.v1.Session() as session:
         with tf.compat.v1.gfile.GFile(model_path, 'rb') as f:
@@ -12,8 +13,8 @@ def calculate_flops(model_path, shape=None):
             input_name = graph_def.node[0].name
             input_shape = (1, ) + shape
             if shape is not None:
-                tf_input = tf.compat.v1.placeholder(shape=input_shape, dtype='float32', name=input_name)
-                tf.import_graph_def(graph_def, name="import", input_map={input_name: tf_input})
+                tf_input = tf.compat.v1.placeholder(shape=input_shape, dtype="float32", name=input_name)
+                tf.import_graph_def(graph_def, input_map={input_name: tf_input})
             else:
                 tf.import_graph_def(graph_def)
 
@@ -23,6 +24,46 @@ def calculate_flops(model_path, shape=None):
                                                         run_meta=run_meta)
 
             print('FLOPS total = ', flops_stats.total_float_ops)
+
+
+# Mentioned here: https://github.com/tensorflow/tensorflow/issues/32809
+# But still has issues with Incomplete Shape
+def calculate_flops_from_h5(model_h5_path):
+    session = tf.compat.v1.keras.backend.get_session()
+    graph = tf.compat.v1.keras.backend.get_session().graph
+
+    with graph.as_default():
+        with session.as_default():
+            run_meta = tf.compat.v1.RunMetadata()
+            model = tf.compat.v1.keras.models.load_model(model_h5_path)
+            opts = tf.compat.v1.profiler.ProfileOptionBuilder.float_operation()
+
+            # We use the Keras session graph in the call to the profiler.
+            flops = tf.compat.v1.profiler.profile(graph=tf.compat.v1.keras.backend.get_session(),
+                                                  run_meta=run_meta,
+                                                  options=opts)
+
+            print('FLOPS total = ', flops.total_float_ops)
+
+
+# https://github.com/tensorflow/tensorflow/issues/20960
+# But still has issues with Incomplete Shape
+def calculate_flops_with_session_meta(model_path, shape=None):
+    tf.compat.v1.reset_default_graph()
+    with tf.compat.v1.Session(graph=tf.compat.v1.keras.backend.get_session().graph) as session:
+        model = tf.compat.v1.keras.models.load_model(model_path, compile=True)
+        run_metadata = tf.compat.v1.RunMetadata()
+        x = np.random.random([1, shape[0], shape[1], shape[2]])
+        session.run(model.output,
+                    feed_dict={model.inputs[0]: x},
+                    options=tf.compat.v1.RunOptions(trace_level=tf.compat.v1.RunOptions.FULL_TRACE),
+                    run_metadata=run_metadata)
+
+        flops_stats = tf.compat.v1.profiler.profile(tf.compat.v1.keras.backend.get_session().graph,
+                                                    options=tf.compat.v1.profiler.ProfileOptionBuilder.float_operation(),
+                                                    run_meta=run_metadata)
+
+        print('FLOPS total = ', flops_stats.total_float_ops)
 
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
