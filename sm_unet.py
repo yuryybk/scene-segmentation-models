@@ -43,7 +43,7 @@ class SMUNet(BaseNet):
         self.save_additional_model_params(unique_file_id)
 
     def save_additional_model_params(self, unique_file_id):
-        params_file_path = self.build_params_file_path(unique_file_id)
+        params_file_path = self.build_params_file_path()
         with open(params_file_path, "a") as f:
             f.write("PRETRAIN_ENCODER_WEIGHTS = " + self._encoder_weights + "\n")
             f.write("BACKBONE = " + self._backbone + "\n")

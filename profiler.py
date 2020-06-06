@@ -1,8 +1,11 @@
 import tensorflow as tf
 import numpy as np
+from flopco_keras import FlopCoKeras
+
+ProfileOptionBuilder = tf.compat.v1.profiler.ProfileOptionBuilder
 
 
-def calculate_flops_from_frozen_graph(model_path, shape=None):
+def calculate_flops_from_frozen_graph(model_path, save_path, shape=None):
     tf.compat.v1.reset_default_graph()
     with tf.compat.v1.Session() as session:
         with tf.compat.v1.gfile.GFile(model_path, 'rb') as f:
@@ -19,16 +22,20 @@ def calculate_flops_from_frozen_graph(model_path, shape=None):
                 tf.import_graph_def(graph_def)
 
             run_meta = tf.compat.v1.RunMetadata()
+            opts = build_profile_options(save_path)
             flops_stats = tf.compat.v1.profiler.profile(tf.compat.v1.get_default_graph(),
-                                                        options=tf.compat.v1.profiler.ProfileOptionBuilder.float_operation(),
+                                                        options=opts,
                                                         run_meta=run_meta)
+
+            with open(build_profile_flops_file_path(save_path), "a") as f_stat:
+                f_stat.write("FLOPS_TOTAL = " + str(flops_stats.total_float_ops) + "\n")
 
             print('FLOPS total = ', flops_stats.total_float_ops)
 
 
 # Mentioned here: https://github.com/tensorflow/tensorflow/issues/32809
 # But still has issues with Incomplete Shape
-def calculate_flops_from_h5(model_h5_path):
+def calculate_flops_from_h5(model_h5_path, save_path,):
     session = tf.compat.v1.keras.backend.get_session()
     graph = tf.compat.v1.keras.backend.get_session().graph
 
@@ -36,34 +43,70 @@ def calculate_flops_from_h5(model_h5_path):
         with session.as_default():
             run_meta = tf.compat.v1.RunMetadata()
             model = tf.compat.v1.keras.models.load_model(model_h5_path)
-            opts = tf.compat.v1.profiler.ProfileOptionBuilder.float_operation()
+            opts = build_profile_options(save_path)
 
             # We use the Keras session graph in the call to the profiler.
             flops = tf.compat.v1.profiler.profile(graph=tf.compat.v1.keras.backend.get_session(),
                                                   run_meta=run_meta,
                                                   options=opts)
 
+            with open(build_profile_flops_file_path(save_path), "a") as f_stat:
+                f_stat.write("FLOPS_TOTAL = " + str(flops.total_float_ops) + "\n")
+
             print('FLOPS total = ', flops.total_float_ops)
 
 
 # https://github.com/tensorflow/tensorflow/issues/20960
 # But still has issues with Incomplete Shape
-def calculate_flops_with_session_meta(model_path, shape=None):
+def calculate_flops_with_session_meta(model_path, save_path, shape=None):
     tf.compat.v1.reset_default_graph()
     with tf.compat.v1.Session(graph=tf.compat.v1.keras.backend.get_session().graph) as session:
         model = tf.compat.v1.keras.models.load_model(model_path, compile=True)
-        run_metadata = tf.compat.v1.RunMetadata()
+        meta = tf.compat.v1.RunMetadata()
         x = np.random.random([1, shape[0], shape[1], shape[2]])
         session.run(model.output,
                     feed_dict={model.inputs[0]: x},
                     options=tf.compat.v1.RunOptions(trace_level=tf.compat.v1.RunOptions.FULL_TRACE),
-                    run_metadata=run_metadata)
+                    run_metadata=meta)
 
-        flops_stats = tf.compat.v1.profiler.profile(tf.compat.v1.keras.backend.get_session().graph,
-                                                    options=tf.compat.v1.profiler.ProfileOptionBuilder.float_operation(),
-                                                    run_meta=run_metadata)
+        graph = tf.compat.v1.keras.backend.get_session().graph
+
+        opts_variables = build_profile_options(save_path, flops=False)
+        tf.compat.v1.profiler.profile(graph, options=opts_variables, run_meta=meta)
+
+        opts_flops = build_profile_options(save_path, flops=True)
+        flops_stats = tf.compat.v1.profiler.profile(graph, options=opts_flops, run_meta=meta)
+
+        with open(build_profile_flops_file_path(save_path), "a") as f_stat:
+            f_stat.write("FLOPS_TOTAL = " + str(flops_stats.total_float_ops) + "\n")
 
         print('FLOPS total = ', flops_stats.total_float_ops)
+
+
+def build_profile_flops_file_path(save_path):
+    return save_path + "profiler_flops.txt"
+
+
+def build_profile_variables_file_path(save_path):
+    return save_path + "profiler_variables.txt"
+
+
+def build_profile_options(save_path, flops=True):
+    logs_file = build_profile_variables_file_path(save_path)
+    if flops:
+        logs_file = build_profile_flops_file_path(save_path)
+
+    select = ['params', 'float_ops', 'input_shapes', 'occurrence', 'op_types', 'tensor_value', 'output_bytes', 'bytes', 'peak_bytes', 'residual_bytes']
+
+    builder = ProfileOptionBuilder.trainable_variables_parameter()
+    if flops:
+        builder = ProfileOptionBuilder.float_operation()
+
+    return ProfileOptionBuilder(builder) \
+        .with_file_output(logs_file) \
+        .account_displayed_op_only(False) \
+        .order_by("occurrence") \
+        .select(select).build()
 
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
@@ -93,3 +136,10 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
         frozen_graph = tf.compat.v1.graph_util.convert_variables_to_constants(
             session, input_graph_def, output_names, freeze_var_names)
         return frozen_graph
+
+
+def calculate_flops_flopco(model):
+    stats = FlopCoKeras(model)
+    print(f"FLOPs: {stats.total_flops}")
+    print(f"MACs: {stats.total_macs}")
+    print(f"Relative FLOPs: {stats.relative_flops}")

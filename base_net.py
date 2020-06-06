@@ -51,7 +51,7 @@ class BaseNet:
         else:
             self._steps_validation = self.get_validation_steps()
 
-        self.save_model_params(unique_file_id)
+        self.save_model_params()
 
     def get_name(self):
         return self._name
@@ -82,32 +82,45 @@ class BaseNet:
         saved_model_folder = self.build_saved_model_folder()
         return saved_model_folder + unique_file_id + ".tflite"
 
-    def build_saved_model_file_path(self, unique_file_id):
+    def build_saved_model_file_path(self, unique_file_id, h5):
         saved_model_folder = self.build_saved_model_folder()
-        return saved_model_folder + unique_file_id + ".h5"
+        ext = ""
+        if h5:
+            ext = ".h5"
+        return saved_model_folder + unique_file_id + ext
 
     def get_saved_model_pb_file_path(self):
         saved_model_folder = self.build_saved_model_folder()
         return saved_model_folder + self._unique_file_id + "/saved_model.pb"
 
-    def get_saved_model_file_path(self):
-        return self.build_saved_model_file_path(self._unique_file_id)
+    def get_h5_saved_model_file_path(self):
+        return self.build_saved_model_file_path(self._unique_file_id, True)
 
-    def build_params_file_path(self, unique_file_id):
+    def build_params_file_path(self):
         saved_model_folder = self.build_saved_model_folder()
         return saved_model_folder + self._params_file_name
 
-    def build_saved_model_callback(self, unique_file_id):
-        saved_model_path = self.build_saved_model_file_path(unique_file_id)
+    def build_h5_model_callback(self, unique_file_id):
+        saved_model_path = self.build_saved_model_file_path(unique_file_id, True)
+        return self.get_saved_model_callback(saved_model_path)
+
+    def build_saved_model_pb_callback(self, unique_file_id):
+        saved_model_path = self.build_saved_model_file_path(unique_file_id, False)
+        return self.get_saved_model_callback(saved_model_path)
+
+    @staticmethod
+    def get_saved_model_callback(saved_model_path):
         return tf.keras.callbacks.ModelCheckpoint(saved_model_path, save_best_only=True, monitor="val_loss", mode='min')
 
     def build_model_callbacks(self, unique_file_id):
         tensorboard_callback = self.build_tensorboard_callback(unique_file_id)
-        saved_models_callback = self.build_saved_model_callback(unique_file_id)
-        return [tensorboard_callback, saved_models_callback]
+        h5_callback = self.build_h5_model_callback(unique_file_id)
+        saved_model_pb_callback = self.build_saved_model_pb_callback(unique_file_id)
+
+        return [tensorboard_callback, h5_callback, saved_model_pb_callback]
 
     def build_frozen_graph_file_name(self):
-        return self._unique_file_id + ".frozen"
+        return "frozen_" + self._unique_file_id + ".pb"
 
     def build_frozen_graph_file_path(self):
         frozen_file_name = self.build_frozen_graph_file_name()
@@ -144,8 +157,8 @@ class BaseNet:
     def train(self):
         self.print_train_params_summary()
 
-    def load_saved_model(self):
-        saved_model_file_path = self.build_saved_model_file_path(self._unique_file_id)
+    def load_h5_model(self):
+        saved_model_file_path = self.build_saved_model_file_path(self._unique_file_id, True)
         return tf.keras.models.load_model(saved_model_file_path, compile=False)
 
     def save_frozen_graph_tf1(self):
@@ -154,7 +167,7 @@ class BaseNet:
         with session.as_default():
             with graph.as_default():
                 tf.compat.v1.keras.backend.set_learning_phase(0)
-                model = tf.keras.models.load_model(self.get_saved_model_file_path())
+                model = tf.keras.models.load_model(self.get_h5_saved_model_file_path())
                 output_names = [out.op.name for out in model.outputs]
                 frozen_graph = profiler.freeze_session(session, output_names=output_names)
 
@@ -195,7 +208,7 @@ class BaseNet:
     def save_tf_lite(self):
 
         # Load model with best saved params
-        model = self.load_saved_model()
+        model = self.load_h5_model()
 
         # Convert the model.
         converter = tf.lite.TFLiteConverter.from_keras_model(model)
@@ -230,7 +243,7 @@ class BaseNet:
         tflite_results = interpreter.get_tensor(output_details[0]['index'])
 
         # Test the TensorFlow model on random input data.
-        model = self.load_saved_model()
+        model = self.load_h5_model()
         self.compile_model(model)
         tf_results = model(tf.constant(input_data))
 
@@ -241,8 +254,8 @@ class BaseNet:
     def compile_model(self, model):
         pass
 
-    def save_model_params(self, unique_file_id):
-        params_file_path = self.build_params_file_path(unique_file_id)
+    def save_model_params(self):
+        params_file_path = self.build_params_file_path()
         with open(params_file_path, "w") as f:
             f.write("NAME = " + self._name + "\n")
             f.write("DATASET = " + self._data.get_name() + "\n")

@@ -20,15 +20,32 @@ def train_ny2_data_1():
                       metrics=[tf.keras.metrics.MeanIoU(num_classes=13)])
     sm_u_net.train()
 
+    # --------------------------
+
     # sm_u_net.save_tf_lite()
 
-    # sm_u_net.save_frozen_graph_tf2()
+    # --------------------------
 
-    # profiler.calculate_flops_from_frozen_graph(sm_u_net.build_frozen_graph_file_path(),
+    # profiler.calculate_flops_with_session_meta(sm_u_net.get_saved_model_file_path(),
+    #                                            sm_u_net.build_saved_model_folder(),
     #                                            sm_u_net.get_input_shape())
 
-    profiler.calculate_flops_with_session_meta(sm_u_net.get_saved_model_file_path(),
+    # --------------------------
+
+    sm_u_net.save_frozen_graph_tf2()
+
+    profiler.calculate_flops_from_frozen_graph(sm_u_net.build_frozen_graph_file_path(),
+                                               sm_u_net.build_saved_model_folder(),
                                                sm_u_net.get_input_shape())
+
+    # --------------------------
+
+    # profiler.calculate_flops_with_session_meta(sm_u_net.get_saved_model_file_path(),
+    #                                            sm_u_net.get_input_shape())
+
+    # --------------------------
+
+    # profiler.calculate_flops_flopco(sm_u_net.get_model())
 
 
 train_ny2_data_1()
