@@ -3,9 +3,9 @@ from base_net import BaseNet
 from data_descriptor import DataDescriptor
 
 
-class SMUNet(BaseNet):
+class SMPSPNet(BaseNet):
 
-    _model_name = "sm_unet"
+    _model_name = "sm_pspnet"
 
     def __init__(self,
                  data_descriptor: DataDescriptor,
@@ -14,7 +14,7 @@ class SMUNet(BaseNet):
                  test_batch_size=1,
                  input_shape=(224, 224, 3),
                  encoder_weights="imagenet",
-                 backbone="mobilenetv2",
+                 backbone="resnet152",
                  optimizer="Adam",
                  loss=sm.losses.dice_loss,
                  metrics=[sm.metrics.iou_score],
@@ -52,14 +52,10 @@ class SMUNet(BaseNet):
         super().train()
 
         # Create model
-        self._model = sm.Unet(self._backbone,
-                              activation="softmax",
-                              classes=self._data.get_n_classes(),
-                              encoder_weights=self._encoder_weights,
-                              input_shape=self._input_shape)
+        self._model = sm.PSPNet(self._backbone,
+                                activation="softmax",
+                                classes=self._data.get_n_classes(),
+                                encoder_weights=self._encoder_weights,
+                                input_shape=self._input_shape)
         self.compile_model(self._model)
         self.fit_generator(self._model)
-
-
-
-

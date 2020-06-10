@@ -6,6 +6,7 @@ import os
 import numpy as np
 import tensorflow as tf
 import profiler
+import generator
 
 
 class BaseNet:
@@ -157,6 +158,41 @@ class BaseNet:
     def train(self):
         self.print_train_params_summary()
 
+    def compile_model(self, model):
+        model.compile(self._optimizer, loss=self._loss, metrics=self._metrics)
+
+    def build_train_generator(self):
+        return generator.segmentation_generator(images_path=self._data.get_train_rgb_path(),
+                                                mask_path=self._data.get_train_mask_path(),
+                                                batch_size=self._train_batch_size,
+                                                n_classes=self._data.get_n_classes(),
+                                                input_width=self._input_shape[0],
+                                                input_height=self._input_shape[1],
+                                                output_width=self._input_shape[0],
+                                                output_height=self._input_shape[1],
+                                                do_augment=True)
+
+    def build_val_generator(self):
+        return generator.segmentation_generator(images_path=self._data.get_test_rgb_path(),
+                                                mask_path=self._data.get_test_mask_path(),
+                                                batch_size=self._test_batch_size,
+                                                n_classes=self._data.get_n_classes(),
+                                                input_width=self._input_shape[0],
+                                                input_height=self._input_shape[1],
+                                                output_width=self._input_shape[0],
+                                                output_height=self._input_shape[1],
+                                                do_augment=False)
+
+    def fit_generator(self, model):
+        train_gen = self.build_train_generator()
+        val_gen = self.build_val_generator()
+        model.fit_generator(train_gen,
+                            steps_per_epoch=self._steps_per_epoch,
+                            epochs=self._epochs,
+                            validation_data=val_gen,
+                            validation_steps=self._steps_validation,
+                            callbacks=[self._model_callbacks])
+
     def load_h5_model(self):
         saved_model_file_path = self.build_saved_model_file_path(self._unique_file_id, True)
         return tf.keras.models.load_model(saved_model_file_path, compile=False)
@@ -214,12 +250,16 @@ class BaseNet:
         converter = tf.lite.TFLiteConverter.from_keras_model(model)
         converter.dump_graphviz_dir = self.build_saved_model_folder()
         converter.debug_info = True
-        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS,
-                                               tf.lite.OpsSet.SELECT_TF_OPS]
+        converter.experimental_new_converter = False
+
         tf_lite_model = converter.convert()
         tf_lite_model_path = self.build_tf_lite_file_path(self._unique_file_id)
         with open(tf_lite_model_path, "wb") as f:
             f.write(tf_lite_model)
+
+    def run_inference(self):
+        input_data = np.array(np.random.random_sample((1,) + self._input_shape), dtype=np.float32)
+        tf_results = self._model.predict(tf.constant(input_data))
 
     def validate_tf_lite_model(self):
 
@@ -250,9 +290,6 @@ class BaseNet:
         # Compare the result.
         for tf_result, tflite_result in zip(tf_results, tflite_results):
             np.testing.assert_almost_equal(tf_result, tflite_result, decimal=5)
-
-    def compile_model(self, model):
-        pass
 
     def save_model_params(self):
         params_file_path = self.build_params_file_path()
