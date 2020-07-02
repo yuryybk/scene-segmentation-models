@@ -1,11 +1,12 @@
 import segmentation_models as sm
 from base_net import BaseNet
 from data_descriptor import DataDescriptor
+import tensorflow as tf
 
 
-class SMUNet(BaseNet):
+class MobileNetV2(BaseNet):
 
-    _model_name = "sm_unet"
+    _model_name = "mobile_net_v2"
 
     def __init__(self,
                  data_descriptor: DataDescriptor,
@@ -48,17 +49,12 @@ class SMUNet(BaseNet):
             f.write("BACKBONE = " + self._backbone + "\n")
             f.write("LOSS = " + str(self._loss.name) + "\n")
 
-    def train(self):
-        super().train()
-
+    def create_model(self):
         # Create model
-        self._model = sm.Unet(self._backbone,
-                              activation="sigmoid",
-                              classes=self._data.get_n_classes(),
-                              encoder_weights=self._encoder_weights,
-                              input_shape=self._input_shape)
+        self._model = tf.keras.applications.MobileNetV2(input_shape=self._input_shape,
+                                                        classes=self._data.get_n_classes(),
+                                                        weights=None)
         self.compile_model(self._model)
-        self.fit_generator(self._model)
 
 
 

@@ -1,6 +1,7 @@
 import segmentation_models as sm
 from sm_unet import SMUNet
 from sm_pspnet import SMPSPNet
+from mobile_net_v2 import MobileNetV2
 from nyu_v2_descriptor import NYU2Data
 import profiler
 import tensorflow as tf
@@ -21,17 +22,18 @@ def train_ny2_sm_unet_data_1():
                       metrics=[tf.keras.metrics.MeanIoU(num_classes=13)])
     sm_u_net.train()
     sm_u_net.run_inference()
+    sm_u_net.save_onnx()
 
     # --------------------------
 
-    sm_u_net.save_tf_lite()
-    sm_u_net.validate_tf_lite_model()
+    # sm_u_net.save_tf_lite()
+    # sm_u_net.validate_tf_lite_model()
 
     # --------------------------
 
-    # profiler.calculate_flops_with_session_meta(sm_u_net.get_saved_model_file_path(),
-    #                                            sm_u_net.build_saved_model_folder(),
-    #                                            sm_u_net.get_input_shape())
+    profiler.calculate_flops_with_session_meta(sm_u_net.get_h5_saved_model_file_path(),
+                                               sm_u_net.build_saved_model_folder(),
+                                               sm_u_net.get_input_shape())
 
     # --------------------------
 
@@ -51,6 +53,23 @@ def train_ny2_sm_unet_data_1():
     # profiler.calculate_flops_flopco(sm_u_net.get_model())
 
 
+def create_ny2_mobile_net_v2():
+    data_set = NYU2Data()
+    mobile_net_v2 = MobileNetV2(data_set,
+                                epochs=1,
+                                train_batch_size=4,
+                                input_shape=(224, 224, 3),
+                                steps_per_epoch=1,
+                                steps_validation=1,
+                                run_for_check=True,
+                                loss=tf.keras.losses.CategoricalCrossentropy(),
+                                metrics=[tf.keras.metrics.MeanIoU(num_classes=13)])
+    mobile_net_v2.create_model()
+    mobile_net_v2.run_inference()
+    mobile_net_v2.save_tf_lite(best_saved=False)
+    mobile_net_v2.validate_tf_lite_model(best_saved=False)
+
+
 def train_ny2_sm_pspnet_data_1():
     data_set = NYU2Data()
     sm_psp_net = SMPSPNet(data_set,
@@ -67,12 +86,18 @@ def train_ny2_sm_pspnet_data_1():
     sm_psp_net.run_inference()
     sm_psp_net.save_tf_lite()
     sm_psp_net.save_frozen_graph_tf2()
-    profiler.calculate_flops_from_frozen_graph(sm_psp_net.build_frozen_graph_file_path(),
+
+    profiler.calculate_flops_with_session_meta(sm_psp_net.get_h5_saved_model_file_path(),
                                                sm_psp_net.build_saved_model_folder(),
                                                sm_psp_net.get_input_shape())
 
+    # profiler.calculate_flops_from_frozen_graph(sm_psp_net.build_frozen_graph_file_path(),
+    #                                            sm_psp_net.build_saved_model_folder(),
+    #                                            sm_psp_net.get_input_shape())
 
-train_ny2_sm_unet_data_1()
+
+# train_ny2_sm_unet_data_1()
 # train_ny2_sm_pspnet_data_1()
+create_ny2_mobile_net_v2()
 
 

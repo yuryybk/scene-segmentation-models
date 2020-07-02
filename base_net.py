@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 import profiler
 import generator
+import keras2onnx
 
 
 class BaseNet:
@@ -241,27 +242,37 @@ class BaseNet:
                           name=frozen_graph_file_name,
                           as_text=False)
 
-    def save_tf_lite(self):
+    def save_tf_lite(self, best_saved=True):
 
         # Load model with best saved params
-        model = self.load_h5_model()
+        model = self._model
+        if best_saved:
+            model = self.load_h5_model()
 
         # Convert the model.
         converter = tf.lite.TFLiteConverter.from_keras_model(model)
         converter.dump_graphviz_dir = self.build_saved_model_folder()
         converter.debug_info = True
-        converter.experimental_new_converter = False
+        converter.experimental_new_converter = True
+
+        # Possible options to easily turn on\of for some specific operators
+        # converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
 
         tf_lite_model = converter.convert()
         tf_lite_model_path = self.build_tf_lite_file_path(self._unique_file_id)
         with open(tf_lite_model_path, "wb") as f:
             f.write(tf_lite_model)
 
+    def save_onnx(self):
+        onnx_model = keras2onnx.convert_keras(self._model, self._model.name)
+        onnx_model_file = self.build_saved_model_folder() + self._unique_file_id + ".onnx"
+        keras2onnx.save_model(onnx_model, onnx_model_file)
+
     def run_inference(self):
         input_data = np.array(np.random.random_sample((1,) + self._input_shape), dtype=np.float32)
-        tf_results = self._model.predict(tf.constant(input_data))
+        self._model.predict(tf.constant(input_data))
 
-    def validate_tf_lite_model(self):
+    def validate_tf_lite_model(self, best_saved=True):
 
         # Load TFLite model and allocate tensors.
         tf_lite_model_path = self.build_tf_lite_file_path(self._unique_file_id)
@@ -283,7 +294,9 @@ class BaseNet:
         tflite_results = interpreter.get_tensor(output_details[0]['index'])
 
         # Test the TensorFlow model on random input data.
-        model = self.load_h5_model()
+        model = self._model
+        if best_saved:
+            model = self.load_h5_model()
         self.compile_model(model)
         tf_results = model(tf.constant(input_data))
 
