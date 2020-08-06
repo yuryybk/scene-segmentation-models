@@ -12,9 +12,9 @@ class SMPSPNet(BaseNet):
                  epochs=20,
                  train_batch_size=8,
                  test_batch_size=1,
-                 input_shape=(224, 224, 3),
+                 input_shape=(288, 288, 3),
                  encoder_weights="imagenet",
-                 backbone="resnet152",
+                 backbone="mobilenetv2",
                  optimizer="Adam",
                  loss=sm.losses.dice_loss,
                  metrics=[sm.metrics.iou_score],
@@ -39,23 +39,26 @@ class SMPSPNet(BaseNet):
         self._encoder_weights = encoder_weights
         self._backbone = backbone
 
-        self.save_additional_model_params(unique_file_id)
+        self.save_additional_model_params()
+        self._model = self.create_model()
 
-    def save_additional_model_params(self, unique_file_id):
+    def save_additional_model_params(self):
         params_file_path = self.build_params_file_path()
         with open(params_file_path, "a") as f:
             f.write("PRETRAIN_ENCODER_WEIGHTS = " + self._encoder_weights + "\n")
             f.write("BACKBONE = " + self._backbone + "\n")
             f.write("LOSS = " + str(self._loss.name) + "\n")
 
-    def train(self):
-        super().train()
+    def create_model(self):
+        return sm.PSPNet(self._backbone,
+                         activation="softmax",
+                         downsample_factor=16,
+                         classes=self._data.get_n_classes(),
+                         encoder_weights=self._encoder_weights,
+                         input_shape=self._input_shape)
 
+    def train(self):
         # Create model
-        self._model = sm.PSPNet(self._backbone,
-                                activation="softmax",
-                                classes=self._data.get_n_classes(),
-                                encoder_weights=self._encoder_weights,
-                                input_shape=self._input_shape)
+        super().train()
         self.compile_model(self._model)
         self.fit_generator(self._model)

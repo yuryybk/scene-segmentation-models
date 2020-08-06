@@ -3,9 +3,8 @@ from base_net import BaseNet
 from data_descriptor import DataDescriptor
 
 
-class SMUNet(BaseNet):
-
-    _model_name = "sm_unet"
+class SMLinkNet(BaseNet):
+    _model_name = "sm_linkent"
 
     def __init__(self,
                  data_descriptor: DataDescriptor,
@@ -21,7 +20,6 @@ class SMUNet(BaseNet):
                  steps_per_epoch=None,
                  steps_validation=None,
                  run_for_check=False):
-
         unique_file_id = self.build_unique_file_id(self._model_name, input_shape, epochs, data_descriptor, run_for_check, backbone)
         super().__init__(self._model_name,
                          data_descriptor,
@@ -38,6 +36,7 @@ class SMUNet(BaseNet):
 
         self._encoder_weights = encoder_weights
         self._backbone = backbone
+
         self.save_additional_model_params()
         self._model = self.create_model()
 
@@ -49,17 +48,13 @@ class SMUNet(BaseNet):
             f.write("LOSS = " + str(self._loss.name) + "\n")
 
     def create_model(self):
-        return sm.Unet(self._backbone,
-                       activation="softmax",
-                       classes=self._data.get_n_classes(),
-                       encoder_weights=self._encoder_weights,
-                       input_shape=self._input_shape)
+        return sm.Linknet(self._backbone,
+                          activation="softmax",
+                          classes=self._data.get_n_classes(),
+                          encoder_weights=self._encoder_weights,
+                          input_shape=self._input_shape)
 
     def train(self):
         super().train()
         self.compile_model(self._model)
         self.fit_generator(self._model)
-
-
-
-

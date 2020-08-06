@@ -3,9 +3,9 @@ from base_net import BaseNet
 from data_descriptor import DataDescriptor
 
 
-class SMUNet(BaseNet):
+class SMFPNNet(BaseNet):
 
-    _model_name = "sm_unet"
+    _model_name = "sm_fpnnet"
 
     def __init__(self,
                  data_descriptor: DataDescriptor,
@@ -38,6 +38,7 @@ class SMUNet(BaseNet):
 
         self._encoder_weights = encoder_weights
         self._backbone = backbone
+
         self.save_additional_model_params()
         self._model = self.create_model()
 
@@ -49,17 +50,13 @@ class SMUNet(BaseNet):
             f.write("LOSS = " + str(self._loss.name) + "\n")
 
     def create_model(self):
-        return sm.Unet(self._backbone,
-                       activation="softmax",
-                       classes=self._data.get_n_classes(),
-                       encoder_weights=self._encoder_weights,
-                       input_shape=self._input_shape)
+        return sm.FPN(backbone_name=self._backbone,
+                      activation="softmax",
+                      classes=self._data.get_n_classes(),
+                      encoder_weights=self._encoder_weights,
+                      input_shape=self._input_shape)
 
     def train(self):
         super().train()
         self.compile_model(self._model)
         self.fit_generator(self._model)
-
-
-
-
