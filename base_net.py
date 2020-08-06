@@ -15,6 +15,7 @@ class BaseNet:
     _tensorboard_dir_base_path = "./tensorboard/fit/"
     _saved_model_base_path = "./saved_models/"
     _params_file_name = "params.txt"
+    _model_summary_file_name = "summary.txt"
     _model = None
 
     def __init__(self,
@@ -110,6 +111,10 @@ class BaseNet:
         saved_model_path = self.build_saved_model_file_path(unique_file_id, False)
         return self.get_saved_model_callback(saved_model_path)
 
+    def build_model_summary_path(self):
+        saved_model_folder = self.build_saved_model_folder()
+        return saved_model_folder + self._model_summary_file_name
+
     @staticmethod
     def get_saved_model_callback(saved_model_path):
         return tf.keras.callbacks.ModelCheckpoint(saved_model_path, save_best_only=True, monitor="val_loss", mode='min')
@@ -144,6 +149,12 @@ class BaseNet:
                                                                                                                                     self._steps_validation)
         print(info)
 
+    def save_model_summary(self):
+        model_summary_file_path = self.build_model_summary_path()
+        if self._model is not None:
+            with open(model_summary_file_path, 'w') as f:
+                self._model.summary(print_fn=lambda x: f.write(x + '\n'))
+
     def get_input_shape(self):
         return self._input_shape
 
@@ -158,6 +169,7 @@ class BaseNet:
 
     def train(self):
         self.print_train_params_summary()
+        self.save_model_summary()
 
     def compile_model(self, model):
         model.compile(self._optimizer, loss=self._loss, metrics=self._metrics)
