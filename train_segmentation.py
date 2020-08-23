@@ -11,12 +11,12 @@ import tensorflow as tf
 sm.set_framework('tf.keras')
 
 
-def train_ny2_sm_unet_data_1():
+def check_ny2_sm_unet_data_1(input_shape=(224, 224, 3)):
     data_set = NYU2Data()
     sm_u_net = SMUNet(data_set,
                       epochs=1,
                       train_batch_size=4,
-                      input_shape=(224, 224, 3),
+                      input_shape=input_shape,
                       steps_per_epoch=1,
                       steps_validation=1,
                       run_for_check=True,
@@ -55,29 +55,33 @@ def train_ny2_sm_unet_data_1():
     # profiler.calculate_flops_flopco(sm_u_net.get_model())
 
 
-def create_ny2_mobile_net_v2():
+def check_ny2_mobile_net_v2(input_shape=(224, 224, 3)):
     data_set = NYU2Data()
     mobile_net_v2 = MobileNetV2(data_set,
                                 epochs=1,
                                 train_batch_size=4,
-                                input_shape=(224, 224, 3),
+                                input_shape=input_shape,
                                 steps_per_epoch=1,
                                 steps_validation=1,
                                 run_for_check=True,
                                 loss=tf.keras.losses.CategoricalCrossentropy(),
                                 metrics=[tf.keras.metrics.MeanIoU(num_classes=13)])
-    mobile_net_v2.create_model()
+    mobile_net_v2.train()
     mobile_net_v2.run_inference()
     mobile_net_v2.save_tf_lite(best_saved=False)
     mobile_net_v2.validate_tf_lite_model(best_saved=False)
+    mobile_net_v2.save_frozen_graph_tf2()
+    profiler.calculate_flops_from_frozen_graph(mobile_net_v2.build_frozen_graph_file_path(),
+                                               mobile_net_v2.build_saved_model_folder(),
+                                               mobile_net_v2.get_input_shape())
 
 
-def train_ny2_sm_pspnet_data_1():
+def check_ny2_sm_pspnet_data_1(input_shape=(288, 288, 3)):
     data_set = NYU2Data()
     sm_psp_net = SMPSPNet(data_set,
                           epochs=1,
                           train_batch_size=4,
-                          input_shape=(288, 288, 3),
+                          input_shape=input_shape,
                           steps_per_epoch=1,
                           steps_validation=1,
                           run_for_check=True,
@@ -97,12 +101,12 @@ def train_ny2_sm_pspnet_data_1():
     #                                            sm_psp_net.get_input_shape())
 
 
-def train_ny2_sm_fpnnet_data_1():
+def check_ny2_sm_fpnnet_data_1(input_shape=(224, 224, 3)):
     data_set = NYU2Data()
     sm_psp_net = SMFPNNet(data_set,
                           epochs=1,
                           train_batch_size=4,
-                          input_shape=(224, 224, 3),
+                          input_shape=input_shape,
                           steps_per_epoch=1,
                           steps_validation=1,
                           run_for_check=True,
@@ -119,12 +123,12 @@ def train_ny2_sm_fpnnet_data_1():
                                                sm_psp_net.get_input_shape())
 
 
-def train_ny2_sm_linknet_data_1():
+def check_ny2_sm_linknet_data_1(input_shape=(224, 224, 3)):
     data_set = NYU2Data()
     sm_psp_net = SMLinkNet(data_set,
                            epochs=1,
                            train_batch_size=4,
-                           input_shape=(224, 224, 3),
+                           input_shape=input_shape,
                            steps_per_epoch=1,
                            steps_validation=1,
                            run_for_check=True,
@@ -141,10 +145,60 @@ def train_ny2_sm_linknet_data_1():
                                                sm_psp_net.build_saved_model_folder(),
                                                sm_psp_net.get_input_shape())
 
+# =========================================================================================================
 
-# train_ny2_sm_unet_data_1()
-# train_ny2_sm_pspnet_data_1()
-# create_ny2_mobile_net_v2()
-train_ny2_sm_fpnnet_data_1()
-# train_ny2_sm_linknet_data_1()
 
+def train_ny2_sm_unet_data_1(input_shape=(224, 224, 3)):
+    data_set = NYU2Data()
+    sm_u_net = SMUNet(data_set,
+                      epochs=40,
+                      train_batch_size=8,
+                      input_shape=input_shape)
+    sm_u_net.train()
+
+
+def train_ny2_sm_linknet_data_1(input_shape=(224, 224, 3)):
+    data_set = NYU2Data()
+    sm_link_net = SMLinkNet(data_set,
+                            epochs=40,
+                            train_batch_size=8,
+                            input_shape=input_shape)
+    sm_link_net.train()
+
+
+def train_ny2_sm_pspnet_data_1(input_shape=(224, 224, 3)):
+    data_set = NYU2Data()
+    sm_psp_net = SMPSPNet(data_set,
+                          epochs=40,
+                          train_batch_size=8,
+                          input_shape=input_shape)
+    sm_psp_net.train()
+
+
+def train_ny2_sm_fpn_data_1(input_shape=(224, 224, 3)):
+    data_set = NYU2Data()
+    sm_fpn_net = SMFPNNet(data_set,
+                          epochs=40,
+                          train_batch_size=8,
+                          input_shape=input_shape)
+    sm_fpn_net.train()
+
+# ====================================================================================================================
+
+# s_224_224_3 = (224, 224, 3)
+# check_ny2_sm_unet_data_1(s_224_224_3)
+# check_ny2_sm_pspnet_data_1((288, 288, 3))
+# check_ny2_mobile_net_v2(s_224_224_3)
+# check_ny2_sm_fpnnet_data_1(s_224_224_3)
+# check_ny2_sm_linknet_data_1(s_224_224_3)
+
+# check_ny2_sm_unet_data_1(s_480_320_3)
+# check_ny2_sm_pspnet_data_1((480, 384, 3))
+# check_ny2_mobile_net_v2(s_480_320_3)
+# check_ny2_sm_fpnnet_data_1(s_480_320_3)
+# check_ny2_sm_linknet_data_1(s_480_320_3)
+
+
+#train_ny2_sm_linknet_data_1((224, 224, 3))
+#train_ny2_sm_pspnet_data_1((288, 288, 3))
+train_ny2_sm_fpn_data_1()
