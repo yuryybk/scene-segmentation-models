@@ -41,20 +41,24 @@ class MobileNetV2(BaseNet):
         self._backbone = backbone
 
         self.save_additional_model_params()
+        self._model = self.create_model()
 
     def save_additional_model_params(self):
         params_file_path = self.build_params_file_path()
         with open(params_file_path, "a") as f:
             f.write("PRETRAIN_ENCODER_WEIGHTS = " + self._encoder_weights + "\n")
-            f.write("BACKBONE = " + self._backbone + "\n")
             f.write("LOSS = " + str(self._loss.name) + "\n")
 
     def create_model(self):
         # Create model
-        self._model = tf.keras.applications.MobileNetV2(input_shape=self._input_shape,
-                                                        classes=self._data.get_n_classes(),
-                                                        weights=None)
+        return tf.keras.applications.MobileNetV2(input_shape=self._input_shape,
+                                                 classes=self._data.get_n_classes(),
+                                                 weights=None)
+
+    def train(self):
+        super().train()
         self.compile_model(self._model)
+        # TODO: add real train
 
 
 
