@@ -183,22 +183,40 @@ def train_ny2_sm_fpn_data_1(input_shape=(224, 224, 3)):
                           input_shape=input_shape)
     sm_fpn_net.train()
 
-# ====================================================================================================================
 
-# s_224_224_3 = (224, 224, 3)
-# check_ny2_sm_unet_data_1(s_224_224_3)
+# ======================================== 224 x 224 x 3 =====================================================================
+
+# check_ny2_mobile_net_v2((224, 224, 3))
+# check_ny2_sm_unet_data_1((224, 224, 3))
 # check_ny2_sm_pspnet_data_1((288, 288, 3))
-# check_ny2_mobile_net_v2(s_224_224_3)
-# check_ny2_sm_fpnnet_data_1(s_224_224_3)
-# check_ny2_sm_linknet_data_1(s_224_224_3)
+# check_ny2_sm_fpnnet_data_1((224, 224, 3))
+# check_ny2_sm_linknet_data_1((224, 224, 3))
 
-# check_ny2_sm_unet_data_1(s_480_320_3)
-# check_ny2_sm_pspnet_data_1((480, 384, 3))
-# check_ny2_mobile_net_v2(s_480_320_3)
-# check_ny2_sm_fpnnet_data_1(s_480_320_3)
-# check_ny2_sm_linknet_data_1(s_480_320_3)
+# train_ny2_sm_linknet_data_1((224, 224, 3))
+# train_ny2_sm_pspnet_data_1((288, 288, 3))
+# train_ny2_sm_fpn_data_1((224, 224, 3))
+# train_ny2_sm_unet_data_1((224, 224, 3))
 
+# ======================================== 448 x 448 x 3 =====================================================================
 
-#train_ny2_sm_linknet_data_1((224, 224, 3))
-#train_ny2_sm_pspnet_data_1((288, 288, 3))
-train_ny2_sm_fpn_data_1()
+# check_ny2_mobile_net_v2((448, 448, 3))
+# check_ny2_sm_unet_data_1((448, 448, 3))
+# check_ny2_sm_pspnet_data_1((576, 576, 3))
+# check_ny2_sm_fpnnet_data_1((448, 448, 3))
+# check_ny2_sm_linknet_data_1((448, 448, 3))
+
+# ======================================== 96 x 96 x 3======================================================================
+
+# check_ny2_mobile_net_v2((96, 96, 3))
+# check_ny2_sm_unet_data_1((96, 96, 3))
+# check_ny2_sm_pspnet_data_1((96, 96, 3))
+# check_ny2_sm_fpnnet_data_1((96, 96, 3))
+# check_ny2_sm_linknet_data_1((96, 96, 3))
+
+# ======================================== 336 x 336 x 3======================================================================
+
+check_ny2_mobile_net_v2((336, 336, 3))
+# check_ny2_sm_unet_data_1((336, 336, 3))
+# check_ny2_sm_pspnet_data_1((384, 384, 3))
+# check_ny2_sm_fpnnet_data_1((336, 336, 3))
+# check_ny2_sm_linknet_data_1((336, 336, 3))
