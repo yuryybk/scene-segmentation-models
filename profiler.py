@@ -1,6 +1,9 @@
 import tensorflow as tf
 import numpy as np
-from flopco_keras import FlopCoKeras
+
+# FlopcoKeras install is broken on pip 20.1 due to use of pip internals in setup.py
+# https://www.gitmemory.com/issue/Aloomaio/alooma-python/120/629762153
+# from flopco_keras import FlopCoKeras
 
 ProfileOptionBuilder = tf.compat.v1.profiler.ProfileOptionBuilder
 
@@ -137,9 +140,10 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
             session, input_graph_def, output_names, freeze_var_names)
         return frozen_graph
 
-
-def calculate_flops_flopco(model):
-    stats = FlopCoKeras(model)
-    print(f"FLOPs: {stats.total_flops}")
-    print(f"MACs: {stats.total_macs}")
-    print(f"Relative FLOPs: {stats.relative_flops}")
+# FlopcoKeras install is broken on pip 20.1 due to use of pip internals in setup.py
+# https://www.gitmemory.com/issue/Aloomaio/alooma-python/120/629762153
+# def calculate_flops_flopco(model):
+#     stats = FlopCoKeras(model)
+#     print(f"FLOPs: {stats.total_flops}")
+#     print(f"MACs: {stats.total_macs}")
+#     print(f"Relative FLOPs: {stats.relative_flops}")
